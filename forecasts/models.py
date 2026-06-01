@@ -1,8 +1,5 @@
 from django.db import models
 from django.conf import settings
-from setuptools.command.bdist_egg import make_zipfile
-
-from users.models import CustomUser
 
 
 # Create your models here.
@@ -13,8 +10,8 @@ class SimulatedForecast(models.Model):
     location = models.CharField(max_length=100, db_index=True)
     date = models.DateField()
     temperature = models.FloatField()
-    humidity = models.IntegerField(help_text="Percentage humidity")
-    condition = models.CharField(max_length=50, help_text="Ex. Sunny, Rainy, Cloudy")
+    humidity = models.IntegerField(help_text='Percentage humidity')
+    condition = models.CharField(max_length=50, help_text='Ex. Sunny, Rainy, Cloudy')
 
     class Meta:
         unique_together = ('location', 'date')
@@ -54,7 +51,7 @@ class DailyRequestTracker(models.Model):
     ip_address = models.GenericIPAddressField(
         null=True,
         blank=True,
-        help_text="IP address of the request"
+        help_text='IP address of the request'
     )
 
     date = models.DateField(auto_now=True)
