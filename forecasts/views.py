@@ -1,10 +1,11 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status,permissions
+from rest_framework.exceptions import PermissionDenied
+from rest_framework import status,permissions, viewsets
 from django.utils.timezone import now
 from .models import SimulatedForecast, DailyRequestTracker, SavedQuery
-from .serializers import SimulatedForecastSerializer
+from .serializers import SimulatedForecastSerializer, SavedQuerySerializer
 
 # Create your views here.
 
@@ -63,3 +64,22 @@ class WeatherForecastView(APIView):
 
         serializer = SimulatedForecastSerializer(forecasts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SavedQueryViewSet(viewsets.ModelViewSet):
+    serializer_class = SavedQuerySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, 'role', '') != 'premium':
+            raise PermissionDenied("Only premium users can access to the history")
+
+        return SavedQuery.objects.filter(user=user).order_by('-timestamp')
+
+    def perform_create(self, serializer):
+        # Forces assignment to the account of a user who created a query manually
+        user = self.request.user
+        if getattr(user, 'role', '') != 'premium':
+            raise PermissionDenied("Only premium users can save researches")
+        serializer.save(user=user)
