@@ -9,15 +9,16 @@ class SimulatedForecast(models.Model):
     """
     location = models.CharField(max_length=100, db_index=True)
     date = models.DateField()
+    time = models.TimeField()
     temperature = models.FloatField()
     humidity = models.IntegerField(help_text='Percentage humidity')
     condition = models.CharField(max_length=50, help_text='Ex. Sunny, Rainy, Cloudy')
 
     class Meta:
-        unique_together = ('location', 'date')
+        unique_together = ('location', 'date', 'time')
 
     def __str__(self):
-        return f"{self.location} - {self.date}: {self.temperature}"
+        return f"{self.location} - {self.date} {self.time}: {self.temperature}"
 
 class SavedQuery(models.Model):
     """

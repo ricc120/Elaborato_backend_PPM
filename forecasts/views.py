@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from datetime import datetime
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -11,17 +12,40 @@ from .serializers import SimulatedForecastSerializer, SavedQuerySerializer
 
 class WeatherForecastView(APIView):
     # Allows access to everybody, manages roles within the GET method
-    permissions_classes = [permissions.AllowAny]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         location = request.query_params.get('location')
+        date_str = request.query_params.get('date')
+        time_str = request.query_params.get('time')
 
-        # Input validation
+        # Input validation, location is mandatory
         if not location:
             return Response(
                 {'error': 'Parameter "location" is required.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Input validation, date is optional
+        target_date = None
+        if date_str:
+            try:
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid data format. Use: YYYY-MM-DD'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        target_time = None
+        if time_str:
+            try:
+                target_time = datetime.strptime(time_str, '%H:%M').time()
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid data format. Use: HH:MM'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         user = request.user if request.user.is_authenticated else None
 
@@ -51,6 +75,12 @@ class WeatherForecastView(APIView):
 
         # Retrieves dates through ORM
         forecasts = SimulatedForecast.objects.filter(location__iexact=location)
+
+        if target_date:
+            forecasts = forecasts.filter(date=target_date)
+
+        if target_time:
+            forecasts = forecasts.filter(time=target_time)
 
         if not forecasts.exists():
             return Response(
