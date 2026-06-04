@@ -8,10 +8,11 @@ class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('regular', 'Regular User'),
         ('premium', 'Premium User'),
+        ('editor', 'Editor User'),
     ]
 
     role = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=ROLE_CHOICES,
         default='regular',
     )

@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import WeatherForecastView, SavedQueryViewSet
+from .views import WeatherForecastView, SavedQueryViewSet, ForecastManagementViewSet
 
 router = DefaultRouter()
 
 # Registers the ViewSet with prefix 'history'
 router.register(r'history', SavedQueryViewSet, basename='history')
+router.register(r'manage', ForecastManagementViewSet, basename='manage')
 
 urlpatterns = [
     path('weather/', WeatherForecastView.as_view(), name='weather-forecast'),

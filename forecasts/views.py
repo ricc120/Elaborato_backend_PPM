@@ -113,3 +113,28 @@ class SavedQueryViewSet(viewsets.ModelViewSet):
         if getattr(user, 'role', '') != 'premium':
             raise PermissionDenied("Only premium users can save researches")
         serializer.save(user=user)
+
+class IsEditorOrReadOnly(permissions.BasePermission):
+    """
+    Allows GET, HEAD or OPTIONS requests to all users.
+    Allows POST, PUT or DELETE requests to editor users only.
+    """
+
+    def has_permission(self, request, view):
+
+        # SAFE_METHODS are read-only methods
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # Verifies that the user is logged in and is an editor
+        return bool(
+            request.user and request.user.is_authenticated and
+            getattr(request.user, 'role','')== 'editor'
+        )
+
+class ForecastManagementViewSet(viewsets.ModelViewSet):
+    queryset = SimulatedForecast.objects.all().order_by('-date', 'time')
+    serializer_class = SimulatedForecastSerializer
+    # Applies custom permission 
+    permission_classes = [IsEditorOrReadOnly]
+

@@ -18,7 +18,7 @@ class SimulatedForecast(models.Model):
         unique_together = ('location', 'date', 'time')
 
     def __str__(self):
-        return f"{self.location} - {self.date} {self.time}: {self.temperature}"
+        return f"{self.location} - {self.date} {self.time}: {self.temperature}℃"
 
 class SavedQuery(models.Model):
     """
@@ -59,4 +59,8 @@ class DailyRequestTracker(models.Model):
     request_count = models.PositiveIntegerField(default=0)
 
     def __str__(self):
-        return f"Request of {self.user.username} at {self.date}: {self.request_count}"
+        if self.user:
+            username = self.user.username
+        else:
+            username = f"Anonymous User (IP: {self.ip_address})"
+        return f"Request of {username} at {self.date}: {self.request_count}"
