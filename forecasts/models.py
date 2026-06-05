@@ -64,3 +64,36 @@ class DailyRequestTracker(models.Model):
         else:
             username = f"Anonymous User (IP: {self.ip_address})"
         return f"Request of {username} at {self.date}: {self.request_count}"
+
+class FavouriteCity(models.Model):
+    """
+    Manages favourite cities for Premium users
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favourite_cities'
+    )
+
+    name = models.CharField(max_length=100)
+    is_primary = models.BooleanField(
+        default=False,
+        help_text='If True its used as default for research'
+    )
+
+    class Meta:
+
+        # Doesn't allow to save two times the same city
+        unique_together = ('user', 'name')
+        verbose_name_plural = 'Favourite Cities'
+
+    def save(self, *args, **kwargs):
+
+        # Removes the 'primary' flag from all other cities for this user if this city is saved as 'primary'
+        if self.is_primary:
+            FavouriteCity.objects.filter(user=self.user).update(is_primary=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.user.username})"

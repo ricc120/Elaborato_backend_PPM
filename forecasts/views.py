@@ -5,12 +5,14 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import status,permissions, viewsets
 from django.utils.timezone import now
-from .models import SimulatedForecast, DailyRequestTracker, SavedQuery
-from .serializers import SimulatedForecastSerializer, SavedQuerySerializer
+from .models import SimulatedForecast, DailyRequestTracker, SavedQuery, FavouriteCity
+from .serializers import SimulatedForecastSerializer, SavedQuerySerializer, FavouriteCitySerializer
+from django.db.models import Count, Max
 
 # Create your views here.
 
 class WeatherForecastView(APIView):
+
     # Allows access to everybody, manages roles within the GET method
     permission_classes = [permissions.AllowAny]
 
@@ -19,10 +21,20 @@ class WeatherForecastView(APIView):
         date_str = request.query_params.get('date')
         time_str = request.query_params.get('time')
 
+        user = request.user if request.user.is_authenticated else None
+        # Checks roles (AuthZ)
+        is_premium = user and getattr(user, 'role', '') == 'premium'
+
+        # Searches Premium user favourite city if he's not insert 'location' in URL
+        if not location and is_premium:
+            primary_fav = FavouriteCity.objects.filter(user=user, is_primary=True).first()
+            if primary_fav:
+                location = primary_fav.name
+
         # Input validation, location is mandatory
         if not location:
             return Response(
-                {'error': 'Parameter "location" is required.'},
+                {'error': 'Parameter "location" is required or set a primary favourite city.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -46,11 +58,6 @@ class WeatherForecastView(APIView):
                     {'error': 'Invalid data format. Use: HH:MM'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-        user = request.user if request.user.is_authenticated else None
-
-        # Checks roles (AuthZ)
-        is_premium = user and getattr(user, 'role', '') == 'premium'
 
         # Manages rate-limit logics for no premium users
         if not is_premium:
@@ -95,7 +102,6 @@ class WeatherForecastView(APIView):
         serializer = SimulatedForecastSerializer(forecasts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class SavedQueryViewSet(viewsets.ModelViewSet):
     serializer_class = SavedQuerySerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -108,6 +114,7 @@ class SavedQueryViewSet(viewsets.ModelViewSet):
         return SavedQuery.objects.filter(user=user).order_by('-timestamp')
 
     def perform_create(self, serializer):
+
         # Forces assignment to the account of a user who created a query manually
         user = self.request.user
         if getattr(user, 'role', '') != 'premium':
@@ -135,6 +142,59 @@ class IsEditorOrReadOnly(permissions.BasePermission):
 class ForecastManagementViewSet(viewsets.ModelViewSet):
     queryset = SimulatedForecast.objects.all().order_by('-date', 'time')
     serializer_class = SimulatedForecastSerializer
-    # Applies custom permission 
+    # Applies custom permission
     permission_classes = [IsEditorOrReadOnly]
 
+class FavouriteCityViewSet(viewsets.ModelViewSet):
+    serializer_class = FavouriteCitySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, 'role', '') != 'premium':
+            raise PermissionDenied("Only premium users can save favourite cities")
+
+        return FavouriteCity.objects.filter(user=user).order_by('is_primary', 'name')
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if getattr(user, 'role', '') != 'premium':
+            raise PermissionDenied("Only premium users can save favourite cities")
+
+        # Sets the first city saved as primary by default
+        is_first = not FavouriteCity.objects.filter(user=user).exists()
+        is_primary = self.request.data.get('is_primary', is_first)
+
+        serializer.save(user=user, is_primary=is_primary)
+
+class HistoryStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        if getattr(user, 'role', '') != 'premium':
+            raise PermissionDenied("Only premium users can access statistics")
+
+        queries = SavedQuery.objects.filter(user=user)
+        total_queries = queries.count()
+
+        if total_queries == 0:
+            return Response(
+                {'message': 'No queries found to calculate statistics' },
+                status=status.HTTP_200_OK
+            )
+
+        # Uses ORM to found the most searched cities byt grouping (GROUP BY) and counting (COUNT)
+        top_city = queries.values('location').annotate(total=Count('location')).order_by('-total').first()
+
+        # Finds the date of the last research
+        last_search = queries.aggregate(latest=Max('timestamp'))
+
+        return Response(
+            {'total_searches_made': total_queries,
+             'most_searched_city': top_city['location'] if top_city else None,
+             'times_searched': top_city['total'] if top_city else 0,
+             'last_active': last_search['latest'] if last_search else None,
+             },
+            status=status.HTTP_200_OK
+        )
