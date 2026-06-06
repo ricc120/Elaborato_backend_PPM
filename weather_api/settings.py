@@ -25,9 +25,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-n=ef&6o*gfjk+tnk_wn!$g2sk909v0$k$(v8xx_q@d^y1-^s_x'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    'ricc120.pythonanywhere.com'
+]
 
 
 # Application definition
@@ -110,6 +114,7 @@ REST_FRAMEWORK = {
     ],
 
     'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
