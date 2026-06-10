@@ -12,18 +12,21 @@ The SQLite database (`db.sqlite3`) is pre-populated with weather data and demo u
 
 | Role | Username | Password | Capabilities |
 | :--- | :--- | :--- | :--- |
+| **Admin** | `userAdmin` | `adm1n0password` | Django Superuser (Access to `/admin/` panel). |
 | **Editor** | `userEditor` | `us3r3password` | Full CRUD on weather data (`/api/manage/`). |
-| **Premium** | `userPremium` | `us3r2password` | Unlimited weather queries, save favorite cities, access search history and stats. |
+| **Premium** | `userPremium` | `us3r2password` | Unlimited weather queries, save favourite cities, access search history and stats. |
 | **Basic** | `userBasic` | `us3r1password` | Read-only weather queries (Rate-limited to 5 per day). |
 
 ---
 
 ## API Endpoints Summary
 
+*Note: As this is a pure REST API, the root URL (`/`) will return a standard `404 Not Found`. All interactions must be routed through the `/api/...` endpoints listed below.*
+
 * `POST /api/token/` - Obtain JWT Access and Refresh tokens.
 * `GET /api/weather/` - Retrieve weather forecast (filters: `location`, `date`, `time`).
 * `GET/POST/PUT/DELETE /api/history/` - CRUD for personal search history (Premium only).
-* `GET/POST/PUT/DELETE /api/favorites/` - Manage favorite cities (Premium only).
+* `GET/POST/PUT/DELETE /api/favourites/` - Manage favourite cities (Premium only).
 * `GET /api/history/stats/` - Aggregated user search statistics (Premium only).
 * `GET/POST/PUT/DELETE /api/manage/` - Database management for weather data (Editor only).
 
@@ -40,7 +43,12 @@ To run this project locally on your machine, follow these steps:
 2. **Create and activate a virtual environment:**
    ```bash
    python -m venv venv
-   source venv/bin/activate 
+
+   # Activate on macOS/Linux:
+   source venv/bin/activate
+
+   # Activate on Windows:
+   venv\Scripts\activate
    ```
 3. **Install dependencies:**
    ```bash
@@ -50,6 +58,8 @@ To run this project locally on your machine, follow these steps:
    ```bash
    python manage.py runserver
    ```
+   *Note: The db.sqlite3 database is already populated, so no migrations are needed.*
+
 
 ---
 
@@ -62,12 +72,14 @@ To run this project locally on your machine, follow these steps:
 http POST https://ricc120.pythonanywhere.com/api/token/ username=userBasic password=us3r1password
 ```
 **1.2 Public Weather Query (Rate Limited)**
+
+*If you run without a token you will be considered with your IP.*
 ```bash
-http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome
+http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome "Authorization: Bearer <TOKEN>"
 ```
 *There are also advanced filter with Date and Time.*
 ```bash
-http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==2026-06-01 time==12:00
+http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==2026-06-05 time==12:00 "Authorization: Bearer <TOKEN>"
 ```
 *If you run this 6 times without a token (or with a basic user token), you will receive a `429 Too Many Requests` status, returning a custom exception message.*
 ```
@@ -75,10 +87,16 @@ http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==20
     "error": "Request limit reached, upgrade to premium"
 }
 ```
-** 1.3 Verify Input Validation Handling
+**1.3 Verify Input Validation Handling**
+
 *Pass an invalid date format to verify the backend input sanitization and customized JSON error structure. Expected `400 Bad Request`.*
 ```bash
-http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==01-06-2026
+http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==05-06-2026
+```
+```
+{
+    "error": "Invalid data format. Use: YYYY-MM-DD"
+}
 ```
 
 ### Scenario 2: The Premium Experience (History & Stats)
@@ -86,20 +104,24 @@ http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==01
 ```bash
 http POST https://ricc120.pythonanywhere.com/api/token/ username=userPremium password=us3r2password
 ```
-**2.2 Set a Favorite City**
+**2.2 Set a Favourite City**
 ```bash
-http POST https://ricc120.pythonanywhere.com/api/favorites/ name="Milan" is_primary=true "Authorization: Bearer <TOKEN>"
+http POST https://ricc120.pythonanywhere.com/api/favourites/ name="Milan" is_primary=true "Authorization: Bearer <TOKEN>"
 ```
 **2.3 Smart Fallback Weather Query**
-Query the weather without providing a location. The API will automatically read the user's primary favorite city (Milan) and return its weather.
+
+*Query the weather without providing a location. The API will automatically read the user's primary favourite city (Milan) and return its weather.*
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/weather/ "Authorization: Bearer <TOKEN>"
 ```
+*Note: If you don't set is_primary parameter, the system will consider the first favourite city saved as primary.*
+
 **2.4 Fetch Personal Search History Catalog**
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/history/ "Authorization: Bearer <TOKEN>"
 ```
 **2.5 Check Aggregated Statistics**
+
 Uses Django ORM aggregation to return the most searched city and total queries.
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/history/stats/ "Authorization: Bearer <TOKEN>"
@@ -115,32 +137,38 @@ http POST https://ricc120.pythonanywhere.com/api/token/ username=userEditor pass
 http POST https://ricc120.pythonanywhere.com/api/manage/ location="Atlantis" date="2026-10-10" time="12:00:00" temperature=30 humidity=80 condition="Sunny" "Authorization: Bearer <TOKEN>"
 ```
 **3.3 Read the newly created forecast to get its ID (GET)**
-Note: It is a public resource that returns all the forecasts in the database
+
+*Note: It is a public resource that returns all the forecasts in the database.*
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/manage/ 
 ```
 **3.4 Update the Forecast (PATCH)**
-The ID of the newly created forecast is in the response body of the request above.
+
+*The ID of the newly created forecast is in the response body of the request above.*
 ```bash
-http PATCH https://ricc120.pythonanywhere.com/api/manage/<ID> temperature=35 "Authorization: Bearer <TOKEN>"
+http PATCH https://ricc120.pythonanywhere.com/api/manage/<ID>/ temperature=35 "Authorization: Bearer <TOKEN>"
 ```
 **3.5 Delete the Forecast (DELETE)**
-Returns `204 No Content` on success.
+
+*Returns `204 No Content` on success.*
 ```bash
-http DELETE https://ricc120.pythonanywhere.com/api/manage/<ID> "Authorization: Bearer <TOKEN>"
+http DELETE https://ricc120.pythonanywhere.com/api/manage/<ID>/ "Authorization: Bearer <TOKEN>"
 ```
 
 ### Scenario 4: Permission Validation (Forbidden Actions)
 **4.1 Basic User attempting Editor Actions (Expect 403 Forbidden)**
-Attempt to insert data into the database using the Basic User token.
+
+*Attempt to insert data into the database using the Basic User token.*
 ```bash
-http POST https://ricc120.pythonanywhere.com/api/manage/ location="Paris" date="2026-11-11" time="10:00" temperature=15 humidity=50 condition=Cloudy "Authorization: Bearer <TOKEN>"
+http POST https://ricc120.pythonanywhere.com/api/manage/ location="Paris" date="2026-11-11" time="10:00" temperature=15 humidity=50 condition="Cloudy" "Authorization: Bearer <TOKEN>"
 ```
-Result: The server strictly enforces roles and rejects the request with a `403 Forbidden` error.
+*Result: The server strictly enforces roles and rejects the request with a `403 Forbidden` error.*
+
 **4.2 Premium User attempting Editor Actions (Expect 403 Forbidden)**
-Attempt to insert data into the database using the Premium User token.
+
+*Attempt to insert data into the database using the Premium User token.*
 ```bash
-http POST https://ricc120.pythonanywhere.com/api/manage/ location="Paris" date="2026-11-11" time="10:00" temperature=15 humidity=50 condition=Cloudy "Authorization: Bearer <TOKEN>"
+http POST https://ricc120.pythonanywhere.com/api/manage/ location="Paris" date="2026-11-11" time="10:00" temperature=15 humidity=50 condition="Cloudy" "Authorization: Bearer <TOKEN>"
 ```
-Result: The server strictly enforces roles and rejects the request with a `403 Forbidden` error.
+*Result: The server strictly enforces roles and rejects the request with a `403 Forbidden` error.*
 
