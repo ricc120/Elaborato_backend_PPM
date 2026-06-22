@@ -55,7 +55,7 @@ class WeatherForecastView(APIView):
                 target_time = datetime.strptime(time_str, '%H:%M').time()
             except ValueError:
                 return Response(
-                    {'error': 'Invalid data format. Use: HH:MM'},
+                    {'error': 'Invalid time format. Use: HH:MM'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -91,7 +91,7 @@ class WeatherForecastView(APIView):
 
         if not forecasts.exists():
             return Response(
-                {'error': 'No forecast found for this location'},
+                {'error': 'No forecast found for this location or date-time'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -121,19 +121,14 @@ class SavedQueryViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Only premium users can save researches")
         serializer.save(user=user)
 
-class IsEditorOrReadOnly(permissions.BasePermission):
+class IsEditor(permissions.BasePermission):
     """
-    Allows GET, HEAD or OPTIONS requests to all users.
-    Allows POST, PUT or DELETE requests to editor users only.
+    Allows full CRUD requests to editor users only.
     """
 
     def has_permission(self, request, view):
 
-        # SAFE_METHODS are read-only methods
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        # Verifies that the user is logged in and is an editor
+        # Verifies that the user is logged in as an editor
         return bool(
             request.user and request.user.is_authenticated and
             getattr(request.user, 'role','')== 'editor'
@@ -143,7 +138,7 @@ class ForecastManagementViewSet(viewsets.ModelViewSet):
     queryset = SimulatedForecast.objects.all().order_by('-date', 'time')
     serializer_class = SimulatedForecastSerializer
     # Applies custom permission
-    permission_classes = [IsEditorOrReadOnly]
+    permission_classes = [IsEditor]
 
 class FavouriteCityViewSet(viewsets.ModelViewSet):
     serializer_class = FavouriteCitySerializer
