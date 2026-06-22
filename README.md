@@ -2,7 +2,10 @@
 
 **Author:** Riccardo Chiti  
 **Live Deployment:** https://ricc120.pythonanywhere.com/  
-**Repository:** https://github.com/ricc120/Elaborato_backend_PPM/
+**Repository:** https://github.com/ricc120/Elaborato_backend_PPM/  
+**Project Type:** REST API (Track 3: **Weather Forecast API**)  
+**Framework:** Django & Django REST Framework
+
 
 ## Project Overview
 This project is a fully functional REST API built with Django and Django REST Framework (DRF), designed to provide weather forecasts with a role-based access control system. The architecture includes custom user roles (Basic, Premium, Editor), JWT authentication, rate limiting, and an automated tracking system for user search history. CORS is fully configured to allow external frontend integrations.
@@ -29,6 +32,28 @@ The SQLite database (`db.sqlite3`) is pre-populated with weather data and demo u
 * `GET/POST/PUT/DELETE /api/favourites/` - Manage favourite cities (Premium only).
 * `GET /api/history/stats/` - Aggregated user search statistics (Premium only).
 * `GET/POST/PUT/DELETE /api/manage/` - Database management for weather data (Editor only).
+
+### Detailed Endpoints Reference Table
+
+| HTTP Method | URL Path | Auth Required | Allowed Roles | Request Body (JSON) | Response Example (JSON) | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/api/token/` | No | Anonymous / All | `{"username": "...", "password": "..."}` | `{"access": "eyJ...", "refresh": "eyJ..."}` | Obtain JWT Access and Refresh tokens upon login. |
+| **POST** | `/api/token/refresh/` | No | Anonymous / All | `{"refresh": "<TOKEN>"}` | `{"access": "eyJ..."}` | Renew an expired Access Token using a valid Refresh Token. |
+| **GET** | `/api/weather/` | No (Optional) | Anonymous / All | None (Query params: `location`, `date`, `time`) | `[{"location": "City Name", "temperature": 25.0, ...}]` | Retrieve weather data. Anon/Regular users are rate-limited. Premium benefits from smart fallback if location is omitted. |
+| **GET** | `/api/history/` | Yes | Premium | None | `[{"id": ID, "location": "City Name", "timestamp": ...}]` | List the authenticated Premium user's unique search history. |
+| **POST** | `/api/history/` | Yes | Premium | `{"location": "City Name"}` | `{"id": ID, "location": "City Name", "timestamp": ...}` | Manually save a location search to the user's history. |
+| **PATCH** | `/api/history/<ID>/` | Yes | Premium | `{"location": "New City Name"}` | `{"id": ID, "location": "New City Name", "timestamp": "..."}` | Partially update a specific search history entry. |
+| **DELETE** | `/api/history/<ID>/` | Yes | Premium | None | `204 No Content` | Delete a specific search entry from the personal history. |
+| **GET** | `/api/favourites/` | Yes | Premium | None | `[{"id": ID, "is_primary": false, "name": "City Name"}]` | Retrieve the list of favorite cities for the authenticated user. |
+| **POST** | `/api/favourites/` | Yes | Premium | `{"name": "City Name", "is_primary": true}` | `{"id": ID, "is_primary": true, "name": "City Name"}` | Add a new favorite city and optionally set it as the primary fallback. |
+| **PATCH** | `/api/favourites/<ID>/` | Yes | Premium | `{"is_primary": true}` | `{"id": ID, "is_primary": true, "name": "City Name"}` | Update favorite city attributes (e.g., switching the primary fallback status to resolve conflicts). |
+| **DELETE** | `/api/favourites/<ID>/` | Yes | Premium | None | `204 No Content` | Remove a city from the personal favorites list. |
+| **GET** | `/api/history/stats/` | Yes | Premium | None | `{"last_active": "...", "most_searched_city": "City Name", ...}` | Retrieve aggregated search metrics (total queries, top searched city) via Django ORM. |
+| **GET** | `/api/manage/` | Yes | Editor | None | `[{"id": ID, "location": "City Name", ...}]` | Read-only access to inspect the global weather forecasts catalog. |
+| **POST** | `/api/manage/` | Yes | Editor | `{"location": "City Name", "date": "date", "time": "time", "temperature": 25.0, ...}` | `{"id": ID, "location": "City Name", "temperature": 25.0, ...}` | Create a new weather forecast record in the database. |
+| **PUT** | `/api/manage/<ID>/` | Yes | Editor | `{"location": "New City Name", "date": "New date", "time": "New time", "temperature": 30.0, ...}` | `{"id": ID, "location": "New City Name", ...}` | Completely overwrite an existing weather forecast record. |
+| **PATCH** | `/api/manage/<ID>/` | Yes | Editor | `{"temperature": 35.0}` | `{"id": ID, "location": "City Name", "temperature": 35.0, ...}` | Partially update fields (e.g., modify only temperature) of a record. |
+| **DELETE** | `/api/manage/<ID>/` | Yes | Editor | None | `204 No Content` | Permanently delete a weather forecast record from the database. |
 
 ---
 
@@ -62,6 +87,10 @@ To run this project locally on your machine, follow these steps:
 
 
 ---
+## HTTPie Client Setup
+To reproduce the tests, you can use the HTTPie command-line client.
+* **Installation:** https://httpie.io/docs/cli/installation
+* **Base URL:** `https://ricc120.pythonanywhere.com`
 
 ## HTTPie Testing Scenarios
 *Note: replace `<TOKEN>` with the actual long string received from the login endpoints.*
