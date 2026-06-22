@@ -89,13 +89,29 @@ http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==20
 ```
 **1.3 Verify Input Validation Handling**
 
-*Pass an invalid date format to verify the backend input sanitization and customized JSON error structure. Expected `400 Bad Request`.*
+*Pass an invalid date time format to verify the backend input sanitization and customized JSON error structure. Expected `400 Bad Request`.*
 ```bash
-http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==05-06-2026
+http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome date==05-06-2026 "Authorization: Bearer <TOKEN>"
 ```
 ```
 {
     "error": "Invalid data format. Use: YYYY-MM-DD"
+}
+```
+```bash
+http GET https://ricc120.pythonanywhere.com/api/weather/ location==Rome time==12PM "Authorization: Bearer <TOKEN>"
+```
+```
+{
+    "error": "Invalid time format. Use: HH:MM"
+}
+```
+```bash
+http GET https://ricc120.pythonanywhere.com/api/weather/ location==Atlantis date==2026-06-01 "Authorization: Bearer <TOKEN>"
+```
+```
+{
+    "error": "No forecast found for this location or date-time"
 }
 ```
 
@@ -108,13 +124,17 @@ http POST https://ricc120.pythonanywhere.com/api/token/ username=userPremium pas
 ```bash
 http POST https://ricc120.pythonanywhere.com/api/favourites/ name="Milan" is_primary=true "Authorization: Bearer <TOKEN>"
 ```
+*Note: If you attempt a POST request for a new favorite city when another destination is already flagged as `is_primary=true`, the unique validation constraint will trigger an error. To safely switch your primary context preference, locate the resource <ID> and perform a partial update instead:*
+```bash
+http PATCH https://ricc120.pythonanywhere.com/api/favourites/<ID>/ is_primary=true "Authorization: Bearer <TOKEN>"
+```
 **2.3 Smart Fallback Weather Query**
 
 *Query the weather without providing a location. The API will automatically read the user's primary favourite city (Milan) and return its weather.*
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/weather/ "Authorization: Bearer <TOKEN>"
 ```
-*Note: If you don't set is_primary parameter, the system will consider the first favourite city saved as primary.*
+*Note: If you don't set `is_primary` parameter, the system will consider the first favourite city saved as primary.*
 
 **2.4 Fetch Personal Search History Catalog**
 ```bash
@@ -122,7 +142,7 @@ http GET https://ricc120.pythonanywhere.com/api/history/ "Authorization: Bearer 
 ```
 **2.5 Check Aggregated Statistics**
 
-Uses Django ORM aggregation to return the most searched city and total queries.
+*Uses Django ORM aggregation to return the most searched city and total queries.*
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/history/stats/ "Authorization: Bearer <TOKEN>"
 ```
@@ -138,7 +158,6 @@ http POST https://ricc120.pythonanywhere.com/api/manage/ location="Atlantis" dat
 ```
 **3.3 Read the newly created forecast to get its ID (GET)**
 
-*Note: It is a public resource that returns all the forecasts in the database.*
 ```bash
 http GET https://ricc120.pythonanywhere.com/api/manage/ 
 ```
@@ -172,3 +191,13 @@ http POST https://ricc120.pythonanywhere.com/api/manage/ location="Paris" date="
 ```
 *Result: The server strictly enforces roles and rejects the request with a `403 Forbidden` error.*
 
+### Scenario 5: Administrative Django Interface Inspection
+**5.1 Admin Console Access Verification**
+
+*To evaluate database internal states, relations, and background trackers via browser interface, access the built-in administration command center:*
+
+**URL:** https://ricc120.pythonanywhere.com/admin/
+
+**Credentials:** Username: `userAdmin` | Password: `adm1n0password`
+
+*Note: In the active production cloud environment (DEBUG=False), static file automated rendering is disabled for security compliance. The administrative interface will correctly process all login permissions and display data models utilizing default structured unstyled semantic HTML.*
